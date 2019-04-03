@@ -5,10 +5,11 @@
 
 FASTLED_USING_NAMESPACE
 
-#define DATA_PIN    9
+#define DATA_PIN    5
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
-#define NUM_LEDS    106
+#define NUM_LEDS    60
+// #define NUM_LEDS    106
 #define BRIGHTNESS          96
 #define FRAMES_PER_SECOND  120
 
@@ -46,20 +47,22 @@ PubSubClient mqttClient(net);
 const char* mqttServer = "192.168.1.100";
 
 // Station states, used as MQTT Messages
-const char states[2][10] = {'OFF', 'ON'};
+const char states[2][10] = {"OFF", "ON"};
 
 // Reconnect to the MQTT broker when the connection is lost
 void reconnect() {
   while (!mqttClient.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect with the client ID
-    if (mqttClient.connect(CLIENT_ID)) {
+    if (mqttClient.connect("chromaFaceClient")) {
         Serial.println("Connected!");
         // Once connected, publish an announcement...
-        mqttClient.publish(CLIENT_ID, "CONNECTED");
+        mqttClient.publish("chromaFace", "CONNECTED");
 
         // Subscribe to topic
-        mqttClient.subscribe(TOPIC);
+        mqttClient.subscribe("chromaFace");
+        mqttClient.subscribe("chromaFaceStatus");
+        mqttClient.subscribe("chromaFaceEffects");
 
     } else {
         Serial.print("failed, rc=");
@@ -71,37 +74,40 @@ void reconnect() {
   }
 }
 
-void messageReceived(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.println("] ");
-  char payloadArr[length+1];
-  for (int i=0;i<length;i++)
-  {
-    payloadArr[i] = (char)payload[i];
-  }
-  payloadArr[length] = NULL;
-
-  Serial.println(payloadArr);  // null terminated array
-  const char *on = "ON";
-//  const char off = 'OFF';
-  const char *p = reinterpret_cast<const char*>(payloadArr);
-  
-  if (strcmp(p, states[1]) == 0) tempState = ON_STATE;
-  if (strcmp(p, states[0]) == 0) tempState = OFF_STATE;
-  // Serial.println(states[0]);
-  // Serial.println(states[1]);
-   Serial.println(p);
-   Serial.println(tempState);
-  stateMachine(tempState);
-}
-
 // List of patterns to cycle through.
 typedef void (*EffectsList[])();
 EffectsList effects = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm };
 
 uint8_t currentEffect = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
+
+void nextPattern();
+
+void messageReceived(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);  
+  Serial.println("] ");
+  char payloadArr[length+1];
+  
+  for (unsigned int i=0;i<length;i++)
+  {
+    payloadArr[i] = (char)payload[i];
+  }
+  payloadArr[length] = 0;
+
+  Serial.println(payloadArr);  // null terminated array
+  if (strcmp(topic, "chromaFaceEffects") == 0) {
+    Serial.println("nextPattern");
+    nextPattern();
+  }
+  else {  
+    if (strcmp(payloadArr, states[1]) == 0) tempState = ON_STATE;
+    if (strcmp(payloadArr, states[0]) == 0) tempState = OFF_STATE;
+
+    Serial.println(tempState);
+    stateMachine(tempState);
+  }
+}
 
 void setup() {
   // Initialize serial communication:
@@ -116,7 +122,7 @@ void setup() {
   mqttClient.setServer(mqttServer, 1883);
   mqttClient.setCallback(messageReceived);
   
-  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS);
 
   // Set master brightness control
   FastLED.setBrightness(BRIGHTNESS);
@@ -129,20 +135,21 @@ void loop() {
   mqttClient.loop();
 
   if (currentState == OFF_STATE) {
-//    Serial.println("OFF");
-    FastLED.clear();
+   Serial.println("OFF");
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    delay(100);
   } else {
+    fill_solid(leds, NUM_LEDS, CRGB::Red);
+    // // Call the current pattern function once, updating the 'leds' array
+    // effects[currentEffect]();
   
-    // Call the current pattern function once, updating the 'leds' array
-    effects[currentEffect]();
-  
-    // send the 'leds' array out to the actual LED strip
-    FastLED.show();  
-    // insert a delay to keep the framerate modest
-    FastLED.delay(1000/FRAMES_PER_SECOND); 
+    // // send the 'leds' array out to the actual LED strip
+    // FastLED.show();  
+    // // insert a delay to keep the framerate modest
+    // FastLED.delay(1000/FRAMES_PER_SECOND); 
   
     // do some periodic updates
-    EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
+    // EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
   }
 }
 
@@ -166,8 +173,7 @@ void stateMachine (int state) {
     Serial.println(state);
 #endif
     currentState = state;
-    // Publish the message for this station. i.e. client.publish("PS1", "ACTIVE")
-    mqttClient.publish(TOPIC, states[currentState]);
+    mqttClient.publish("chromaFaceStatus", states[currentState]);
   }
 }
 
