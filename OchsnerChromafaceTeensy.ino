@@ -25,10 +25,10 @@ IPAddress myDns(192, 168, 0, 1);
 void stateMachine (int state);
 
 // The Client ID for connecting to the MQTT Broker
-const char* CLIENT_ID = "oBarClient";
+const char* CLIENT_ID = "chromafaceClient";
 
 // The Topic for mqtt messaging
-const char* TOPIC = "oBar";
+const char* TOPIC = "chromaface";
 
 // States
 const int ON_STATE = 1;
@@ -59,7 +59,7 @@ void reconnect() {
         mqttClient.publish(CLIENT_ID, "CONNECTED");
 
         // Subscribe to topic
-        mqttClient.subscribe("oBar");
+        mqttClient.subscribe(TOPIC);
 
     } else {
         Serial.print("failed, rc=");
@@ -70,25 +70,25 @@ void reconnect() {
     }
   }
 }
-unsigned long PauseTime;
+
 void messageReceived(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.println("] ");
-  char myNewArray[length+1];
+  char payloadArr[length+1];
   for (int i=0;i<length;i++)
   {
-    myNewArray[i] = (char)payload[i];
+    payloadArr[i] = (char)payload[i];
   }
-  myNewArray[length] = NULL;
+  payloadArr[length] = NULL;
 
-  Serial.println(myNewArray);  // null terminated array
+  Serial.println(payloadArr);  // null terminated array
   const char *on = "ON";
 //  const char off = 'OFF';
-  const char *p = reinterpret_cast<const char*>(myNewArray);
+  const char *p = reinterpret_cast<const char*>(payloadArr);
   
-  if (p == states[1]) tempState = ON_STATE;
-  if (p == states[0]) tempState = OFF_STATE;
+  if (strcmp(p, states[1]) == 0) tempState = ON_STATE;
+  if (strcmp(p, states[0]) == 0) tempState = OFF_STATE;
   // Serial.println(states[0]);
   // Serial.println(states[1]);
    Serial.println(p);
