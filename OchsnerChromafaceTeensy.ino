@@ -21,7 +21,7 @@ CRGB leds[NUM_LEDS];
 // byte mac[] = { 0xB3, 0x5C, 0xED, 0xF8, 0x15, 0xD6 };
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 IPAddress ip(192, 168, 1, 97);
-IPAddress myDns(192, 168, 0, 1);
+// IPAddress myDns(192, 168, 0, 1);
 
 void stateMachine (int state);
 
@@ -116,8 +116,8 @@ void setup() {
   Ethernet.init(10);
   
   // Initialize the ethernet connection
-  // Ethernet.begin(mac, ip);
-  Ethernet.begin(mac, ip, myDns); // Connect with DNS 
+  Ethernet.begin(mac, ip);
+//   Ethernet.begin(mac, ip, myDns); // Connect with DNS 
 
   mqttClient.setServer(mqttServer, 1883);
   mqttClient.setCallback(messageReceived);
