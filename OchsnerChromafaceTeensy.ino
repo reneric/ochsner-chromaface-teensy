@@ -74,6 +74,24 @@ void reconnect() {
   }
 }
 
+boolean reconnect_non_blocking() {
+  if (mqttClient.connect("chromaFaceClient")) {
+      Serial.println("Connected!");
+      // Once connected, publish an announcement...
+      mqttClient.publish("chromaFace", "CONNECTED");
+
+      // Subscribe to topic
+      mqttClient.subscribe("chromaFace");
+      mqttClient.subscribe("chromaFaceStatus");
+      mqttClient.subscribe("chromaFaceEffects");
+
+  } else {
+      Serial.print("failed, rc=");
+      Serial.print(mqttClient.state());
+  }
+  return mqttClient.connected();
+}
+
 // List of patterns to cycle through.
 typedef void (*EffectsList[])();
 EffectsList effects = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm };
@@ -130,9 +148,17 @@ void setup() {
 
 void loop() {
   if (!mqttClient.connected()) {
-    reconnect();
+    long now = millis();
+    if (now - lastReconnectAttempt > 5000) {
+      lastReconnectAttempt = now;
+      // Attempt to reconnect
+      if (reconnect_non_blocking()) {
+        lastReconnectAttempt = 0;
+      }
+    }
+  } else {
+    mqttClient.loop();
   }
-  mqttClient.loop();
 
   if (currentState == OFF_STATE) {
    Serial.println("OFF");
