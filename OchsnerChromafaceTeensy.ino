@@ -98,6 +98,7 @@ EffectsList effects = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, 
 
 uint8_t currentEffect = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
+long lastReconnectAttempt = 0;
 
 void nextPattern();
 
@@ -144,6 +145,7 @@ void setup() {
 
   // Set master brightness control
   FastLED.setBrightness(BRIGHTNESS);
+  lastReconnectAttempt = 0;
 }
 
 void loop() {
