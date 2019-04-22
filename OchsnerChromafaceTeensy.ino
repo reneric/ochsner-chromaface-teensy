@@ -44,7 +44,7 @@ EthernetClient net;
 // Initialize the MQTT library
 PubSubClient mqttClient(net);
 
-const char* mqttServer = "192.168.1.100";
+const char* mqttServer = "192.168.2.10";
 
 // Station states, used as MQTT Messages
 const char states[2][10] = {"OFF", "ON"};
