@@ -20,7 +20,8 @@ CRGB leds[NUM_LEDS];
 // Update these with values suitable for the hardware/network.
 // byte mac[] = { 0xB3, 0x5C, 0xED, 0xF8, 0x15, 0xD6 };
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-IPAddress ip(192, 168, 1, 97);
+IPAddress ip(192, 168, 2, 101);
+
 // IPAddress myDns(192, 168, 0, 1);
 
 void stateMachine (int state);
