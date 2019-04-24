@@ -18,11 +18,10 @@ CRGB leds[NUM_LEDS];
 #define NUM_STATIONS 1
 
 // Update these with values suitable for the hardware/network.
-// byte mac[] = { 0xB3, 0x5C, 0xED, 0xF8, 0x15, 0xD6 };
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-// IPAddress ip(192, 168, 1, 97);
-IPAddress ip(192, 168, 1, 82);
-IPAddress myDns(192, 168, 0, 1);
+
+// IPAddress ip(192, 168, 1, 82);
+IPAddress ip(192, 168, 2, 101);
 
 void stateMachine (int state);
 
@@ -45,8 +44,8 @@ EthernetClient net;
 // Initialize the MQTT library
 PubSubClient mqttClient(net);
 
-const char* mqttServer = "192.168.1.97";
-// const char* mqttServer = "192.168.2.10";
+// const char* mqttServer = "192.168.1.97";
+const char* mqttServer = "192.168.2.10";
 
 // Station states, used as MQTT Messages
 const char states[2][10] = {"stop", "start"};
