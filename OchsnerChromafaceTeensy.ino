@@ -6,11 +6,11 @@
 FASTLED_USING_NAMESPACE
 
 #define DATA_PIN    5
-#define LED_TYPE    WS2811
+#define LED_TYPE    WS2812
 #define COLOR_ORDER RGB
-#define NUM_LEDS    360
-// #define NUM_LEDS    106
-#define BRIGHTNESS          96
+// #define NUM_LEDS    360
+#define NUM_LEDS    105
+#define BRIGHTNESS          55
 #define FRAMES_PER_SECOND  120
 
 CRGB leds[NUM_LEDS];
@@ -20,8 +20,8 @@ CRGB leds[NUM_LEDS];
 // Update these with values suitable for the hardware/network.
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 
-// IPAddress ip(192, 168, 1, 82);
-IPAddress ip(192, 168, 2, 101);
+IPAddress ip(192, 168, 1, 82);
+// IPAddress ip(192, 168, 2, 101);
 
 void stateMachine (int state);
 
@@ -44,8 +44,8 @@ EthernetClient net;
 // Initialize the MQTT library
 PubSubClient mqttClient(net);
 
-// const char* mqttServer = "192.168.1.97";
-const char* mqttServer = "192.168.2.10";
+const char* mqttServer = "192.168.1.97";
+// const char* mqttServer = "192.168.2.10";
 
 // Station states, used as MQTT Messages
 const char states[2][10] = {"stop", "start"};
@@ -95,8 +95,8 @@ void messageReceived(char* topic, byte* payload, unsigned int length) {
     nextPattern();
   }
   else {  
-    if (strcmp(payloadArr, "start") == 0) CF_State = ON_STATE;
     if (strcmp(payloadArr, "stop") == 0) CF_State = OFF_STATE;
+    if (strcmp(payloadArr, "start") == 0) CF_State = ON_STATE;
     
     Serial.println(CF_State);
     // stateMachine(CF_State);
@@ -110,8 +110,8 @@ void setup() {
   Ethernet.init(10);
   
   // Initialize the ethernet connection
-  // Ethernet.begin(mac, ip);
-  Ethernet.begin(mac, ip, myDns); // Connect with DNS 
+  Ethernet.begin(mac, ip);
+  // Ethernet.begin(mac, ip, myDns); // Connect with DNS 
 
   mqttClient.setServer(mqttServer, 1883);
   mqttClient.setCallback(messageReceived);
@@ -139,6 +139,7 @@ void loop() {
 
   if (CF_State == OFF_STATE) {
    Serial.println("OFF");
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
     FastLED.clear();
   } else {
 
@@ -146,36 +147,12 @@ void loop() {
     // // Call the current pattern function once, updating the 'leds' array
     // effects[currentEffect]();
     static uint8_t startIndex = 0;
-    startIndex = startIndex + 1; /* motion speed */
+    startIndex = startIndex + 2; /* motion speed */
     
     FillLEDsFromPaletteColors(startIndex);
   }
-  FastLED.show();  
+  FastLED.show();
   FastLED.delay(1000/FRAMES_PER_SECOND);
-}
-
-void stateMachine (int state) {
-  // Get the current sensor state
-  
-  /*
-   * Only send the state update on the first loop.
-   *
-   * IF the current (temporary) PS sensor state is not equal to the actual current broadcasted state,
-   * THEN we can safely change the actual state and broadcast it.
-   *
-   */
-  if (state != CF_State) {
-#if DEBUG == 1    
-    Serial.print("State Changed: ");
-    Serial.println();
-    Serial.print("Last State: ");
-    Serial.println(CF_State);
-    Serial.print("New State: ");
-    Serial.println(state);
-#endif
-    CF_State = state;
-    mqttClient.publish("chromaFaceStatus", states[CF_State]);
-  }
 }
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
@@ -246,8 +223,8 @@ void juggle() {
 void FillLEDsFromPaletteColors( uint8_t colorIndex)
 {
     for( int i = 0; i < NUM_LEDS; i++) {
-        leds[i] = ColorFromPalette( SetupActivePalette(), colorIndex, BRIGHTNESS, LINEARBLEND);
-        colorIndex += 5;
+        leds[i] = ColorFromPalette(SetupActivePalette(), colorIndex, BRIGHTNESS, LINEARBLEND);
+        colorIndex += 1;
     }
 }
 
