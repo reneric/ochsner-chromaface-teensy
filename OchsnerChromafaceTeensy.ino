@@ -7,8 +7,8 @@ FASTLED_USING_NAMESPACE
 
 #define DATA_PIN    5
 #define LED_TYPE    WS2811
-#define COLOR_ORDER GRB
-#define NUM_LEDS    60
+#define COLOR_ORDER RGB
+#define NUM_LEDS    360
 // #define NUM_LEDS    106
 #define BRIGHTNESS          96
 #define FRAMES_PER_SECOND  120
@@ -20,23 +20,24 @@ CRGB leds[NUM_LEDS];
 // Update these with values suitable for the hardware/network.
 // byte mac[] = { 0xB3, 0x5C, 0xED, 0xF8, 0x15, 0xD6 };
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-IPAddress ip(192, 168, 1, 97);
+// IPAddress ip(192, 168, 1, 97);
+IPAddress ip(192, 168, 1, 82);
 IPAddress myDns(192, 168, 0, 1);
 
 void stateMachine (int state);
 
 // The Client ID for connecting to the MQTT Broker
-const char* CLIENT_ID = "chromafaceClient";
+const char* CLIENT_ID = "LED_O";
 
 // The Topic for mqtt messaging
-const char* TOPIC = "chromaface";
+const char* TOPIC = "command/LED_O";
 
 // States
 const int ON_STATE = 1;
 const int OFF_STATE = 0;
 
 // Initialize the current state ON or OFF
-int currentState = ON_STATE;
+int CF_State = ON_STATE;
 int tempState;
 
 // Initialize the ethernet library
@@ -44,45 +45,39 @@ EthernetClient net;
 // Initialize the MQTT library
 PubSubClient mqttClient(net);
 
-const char* mqttServer = "192.168.1.100";
+const char* mqttServer = "192.168.1.97";
+// const char* mqttServer = "192.168.2.10";
 
 // Station states, used as MQTT Messages
-const char states[2][10] = {"OFF", "ON"};
+const char states[2][10] = {"stop", "start"};
 
-// Reconnect to the MQTT broker when the connection is lost
-void reconnect() {
-  while (!mqttClient.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect with the client ID
-    if (mqttClient.connect("chromaFaceClient")) {
-        Serial.println("Connected!");
-        // Once connected, publish an announcement...
-        mqttClient.publish("chromaFace", "CONNECTED");
+/*********** RECONNECT WITHOUT BLOCKING LOOP ************/
+long lastReconnectAttempt = 0;
+boolean reconnect_non_blocking() {
+  if (mqttClient.connect(CLIENT_ID)) {
+    Serial.println("CONNECTED");
+    // Once connected, publish an announcement...
+    mqttClient.publish(CLIENT_ID, "CONNECTED");
 
-        // Subscribe to topic
-        mqttClient.subscribe("chromaFace");
-        mqttClient.subscribe("chromaFaceStatus");
-        mqttClient.subscribe("chromaFaceEffects");
-
-    } else {
-        Serial.print("failed, rc=");
-        Serial.print(mqttClient.state());
-        Serial.println(" try again in 5 seconds");
-        // Wait 5 seconds before retrying
-        delay(5000);
-    }
+    mqttClient.subscribe(TOPIC);
+    
+  } else {
+    Serial.print("failed, rc=");
+    Serial.println(mqttClient.state());
   }
+  return mqttClient.connected();
 }
 
 // List of patterns to cycle through.
 typedef void (*EffectsList[])();
 EffectsList effects = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm };
 
-uint8_t currentEffect = 0; // Index number of which pattern is current
+uint8_t currentEffect = 1; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
 void nextPattern();
 
+/**** CALLBACK RUN WHEN AN MQTT MESSAGE IS RECEIVED *****/
 void messageReceived(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);  
@@ -101,11 +96,11 @@ void messageReceived(char* topic, byte* payload, unsigned int length) {
     nextPattern();
   }
   else {  
-    if (strcmp(payloadArr, states[1]) == 0) tempState = ON_STATE;
-    if (strcmp(payloadArr, states[0]) == 0) tempState = OFF_STATE;
-
-    Serial.println(tempState);
-    stateMachine(tempState);
+    if (strcmp(payloadArr, "start") == 0) CF_State = ON_STATE;
+    if (strcmp(payloadArr, "stop") == 0) CF_State = OFF_STATE;
+    
+    Serial.println(CF_State);
+    // stateMachine(CF_State);
   }
 }
 
@@ -122,35 +117,42 @@ void setup() {
   mqttClient.setServer(mqttServer, 1883);
   mqttClient.setCallback(messageReceived);
   
-  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
   // Set master brightness control
   FastLED.setBrightness(BRIGHTNESS);
+  lastReconnectAttempt = 0;
 }
 
 void loop() {
   if (!mqttClient.connected()) {
-    reconnect();
-  }
-  mqttClient.loop();
-
-  if (currentState == OFF_STATE) {
-   Serial.println("OFF");
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    delay(100);
+    long now = millis();
+    if (now - lastReconnectAttempt > 1000) {
+      lastReconnectAttempt = now;
+      // Attempt to reconnect
+      if (reconnect_non_blocking()) {
+        lastReconnectAttempt = 0;
+      }
+    }
   } else {
-    fill_solid(leds, NUM_LEDS, CRGB::Red);
+    mqttClient.loop();
+  }
+
+  if (CF_State == OFF_STATE) {
+   Serial.println("OFF");
+    FastLED.clear();
+  } else {
+
+    // fill_solid(leds, NUM_LEDS, CRGB::Red);
     // // Call the current pattern function once, updating the 'leds' array
     // effects[currentEffect]();
-  
-    // // send the 'leds' array out to the actual LED strip
-    // FastLED.show();  
-    // // insert a delay to keep the framerate modest
-    // FastLED.delay(1000/FRAMES_PER_SECOND); 
-  
-    // do some periodic updates
-    // EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
+    static uint8_t startIndex = 0;
+    startIndex = startIndex + 1; /* motion speed */
+    
+    FillLEDsFromPaletteColors(startIndex);
   }
+  FastLED.show();  
+  FastLED.delay(1000/FRAMES_PER_SECOND);
 }
 
 void stateMachine (int state) {
@@ -163,17 +165,17 @@ void stateMachine (int state) {
    * THEN we can safely change the actual state and broadcast it.
    *
    */
-  if (state != currentState) {
+  if (state != CF_State) {
 #if DEBUG == 1    
     Serial.print("State Changed: ");
     Serial.println();
     Serial.print("Last State: ");
-    Serial.println(currentState);
+    Serial.println(CF_State);
     Serial.print("New State: ");
     Serial.println(state);
 #endif
-    currentState = state;
-    mqttClient.publish("chromaFaceStatus", states[currentState]);
+    CF_State = state;
+    mqttClient.publish("chromaFaceStatus", states[CF_State]);
   }
 }
 
@@ -241,3 +243,27 @@ void juggle() {
     dothue += 32;
   }
 }
+
+void FillLEDsFromPaletteColors( uint8_t colorIndex)
+{
+    for( int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = ColorFromPalette( SetupActivePalette(), colorIndex, BRIGHTNESS, LINEARBLEND);
+        colorIndex += 5;
+    }
+}
+
+CRGBPalette16 SetupActivePalette()
+{
+    CRGB blue = CHSV( HUE_BLUE, 255, 255);
+    CRGB darkBlue  = CRGB::DarkBlue;
+    CRGB black  = CRGB::DarkBlue;
+    
+    return CRGBPalette16(
+                                   blue,  blue,  black,  black,
+                                   darkBlue, darkBlue, black,  black,
+                                   blue,  blue,  black,  black,
+                                   darkBlue, darkBlue, black,  black );
+}
+
+
+
