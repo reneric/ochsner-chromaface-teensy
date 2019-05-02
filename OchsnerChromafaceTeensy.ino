@@ -69,7 +69,7 @@ boolean reconnect_non_blocking() {
 
 // List of patterns to cycle through.
 typedef void (*EffectsList[])();
-EffectsList effects = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm };
+EffectsList effects = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm, blue_pulse };
 
 uint8_t currentEffect = 1; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -90,7 +90,7 @@ void messageReceived(char* topic, byte* payload, unsigned int length) {
   payloadArr[length] = 0;
 
   Serial.println(payloadArr);  // null terminated array
-  if (strcmp(topic, "chromaFaceEffects") == 0) {
+  if (strcmp(topic, "command/LED_O/next") == 0) {
     Serial.println("nextPattern");
     nextPattern();
   }
@@ -145,11 +145,8 @@ void loop() {
 
     // fill_solid(leds, NUM_LEDS, CRGB::Red);
     // // Call the current pattern function once, updating the 'leds' array
-    // effects[currentEffect]();
-    static uint8_t startIndex = 0;
-    startIndex = startIndex + 2; /* motion speed */
+    effects[currentEffect]();
     
-    FillLEDsFromPaletteColors(startIndex);
   }
   FastLED.show();
   FastLED.delay(1000/FRAMES_PER_SECOND);
@@ -167,6 +164,14 @@ void rainbow()
 {
   // FastLED's built-in rainbow generator
   fill_rainbow( leds, NUM_LEDS, gHue, 7);
+}
+
+void blue_pulse() 
+{
+  static uint8_t startIndex = 0;
+  startIndex = startIndex + 2; /* motion speed */
+  
+  FillLEDsFromPaletteColors(startIndex);
 }
 
 void rainbowWithGlitter() 
