@@ -1,3 +1,4 @@
+#define FASTLED_ALLOW_INTERRUPTS 0
 #include <SPI.h>
 #include <Ethernet.h>
 #include <PubSubClient.h>
@@ -5,13 +6,15 @@
 
 FASTLED_USING_NAMESPACE
 
+#define LOCAL true
+
 #define DATA_PIN    5
-#define LED_TYPE    WS2812
+#define LED_TYPE    WS2812B
 #define COLOR_ORDER RGB
-// #define NUM_LEDS    360
-#define NUM_LEDS    105
-#define BRIGHTNESS          55
-#define FRAMES_PER_SECOND  120
+
+#define NUM_LEDS 105
+#define BRIGHTNESS 255
+#define FRAMES_PER_SECOND  220
 
 CRGB leds[NUM_LEDS];
 
@@ -20,8 +23,11 @@ CRGB leds[NUM_LEDS];
 // Update these with values suitable for the hardware/network.
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 
-// IPAddress ip(192, 168, 1, 82);
-IPAddress ip(192, 168, 2, 101);
+#ifdef LOCAL
+  IPAddress ip(192, 168, 1, 82);
+#else
+  IPAddress ip(192, 168, 2, 101);
+#endif
 
 void stateMachine (int state);
 
@@ -44,8 +50,11 @@ EthernetClient net;
 // Initialize the MQTT library
 PubSubClient mqttClient(net);
 
-// const char* mqttServer = "192.168.1.97";
-const char* mqttServer = "192.168.2.10";
+#ifdef LOCAL
+  const char* mqttServer = "192.168.1.97";
+#else
+  const char* mqttServer = "192.168.2.10";
+#endif
 
 // Station states, used as MQTT Messages
 const char states[2][10] = {"stop", "start"};
@@ -56,9 +65,10 @@ boolean reconnect_non_blocking() {
   if (mqttClient.connect(CLIENT_ID)) {
     Serial.println("CONNECTED");
     // Once connected, publish an announcement...
-    mqttClient.publish(CLIENT_ID, "CONNECTED");
+    mqttClient.publish(CLIENT_ID, "CONNECTED", true);
 
     mqttClient.subscribe(TOPIC);
+    mqttClient.subscribe("command/LED_O/next");
     
   } else {
     Serial.print("failed, rc=");
@@ -69,9 +79,9 @@ boolean reconnect_non_blocking() {
 
 // List of patterns to cycle through.
 typedef void (*EffectsList[])();
-EffectsList effects = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm, blue_pulse };
+EffectsList effects = { blue_pulse, blue_pulse_split, blue_pulse_white, blue_pulse_split_white, rainbow, confetti, sinelon, juggle, bpm};
 
-uint8_t currentEffect = 1; // Index number of which pattern is current
+uint8_t currentEffect = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
 void nextPattern();
@@ -117,7 +127,7 @@ void setup() {
   mqttClient.setCallback(messageReceived);
   
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-
+  FastLED.setDither(0);
   // Set master brightness control
   FastLED.setBrightness(BRIGHTNESS);
   lastReconnectAttempt = 0;
@@ -158,6 +168,8 @@ void nextPattern()
 {
   // add one to the current pattern number, and wrap around at the end
   currentEffect = (currentEffect + 1) % ARRAY_SIZE(effects);
+  Serial.print("CURRENT EFFECT: ");
+  Serial.println(currentEffect);
 }
 
 void rainbow() 
@@ -166,12 +178,37 @@ void rainbow()
   fill_rainbow( leds, NUM_LEDS, gHue, 7);
 }
 
+int speed = 6;
 void blue_pulse() 
 {
   static uint8_t startIndex = 0;
   startIndex = startIndex + 2; /* motion speed */
+
+  FillLEDsFromPaletteColors(startIndex, CRGB::Blue, CRGB::DarkBlue);
+}
+
+void blue_pulse_split() 
+{
+  static uint8_t startIndex = 0;
+  startIndex = startIndex + 2; /* motion speed */
   
-  FillLEDsFromPaletteColors(startIndex);
+  FillLEDsFromPaletteColorsSplit(startIndex, CRGB::Blue, CRGB::DarkBlue);
+}
+
+void blue_pulse_white() 
+{
+  static uint8_t startIndex = 0;
+  startIndex = startIndex + 2; /* motion speed */
+  
+  FillLEDsFromPaletteColors(startIndex, CRGB::RoyalBlue, CRGB::LightSkyBlue);
+}
+
+void blue_pulse_split_white() 
+{
+  static uint8_t startIndex = 0;
+  startIndex = startIndex + 2; /* motion speed */
+  
+  FillLEDsFromPaletteColorsSplit(startIndex, CRGB::RoyalBlue, CRGB::LightSkyBlue);
 }
 
 void rainbowWithGlitter() 
@@ -224,27 +261,81 @@ void juggle() {
     dothue += 32;
   }
 }
-
-void FillLEDsFromPaletteColors( uint8_t colorIndex)
+long start = random(NUM_LEDS);
+void FillLEDsFromPaletteColors( uint8_t colorIndex, CRGB blue, CRGB darkBlue)
 {
     for( int i = 0; i < NUM_LEDS; i++) {
-        leds[i] = ColorFromPalette(SetupActivePalette(), colorIndex, BRIGHTNESS, LINEARBLEND);
-        colorIndex += 1;
+        leds[i] = ColorFromPalette(SetupActivePalette(blue, darkBlue), colorIndex, BRIGHTNESS, LINEARBLEND);
+        colorIndex += speed;
     }
 }
 
-CRGBPalette16 SetupActivePalette()
+void FillLEDsFromPaletteColorsSplit( uint8_t colorIndex, CRGB blue, CRGB darkBlue)
 {
-    CRGB blue = CHSV( HUE_BLUE, 255, 255);
-    CRGB darkBlue  = CRGB::DarkBlue;
-    CRGB black  = CRGB::DarkBlue;
+    for( int i = 0; i < 52; i++) {
+        leds[i] = ColorFromPalette(SetupActivePalette(blue, darkBlue), colorIndex, BRIGHTNESS, LINEARBLEND);
+        colorIndex += speed;
+    }
+    for(int i = 0; i < 53; i++) {
+        leds[i+51] = ColorFromPalette(SetupActivePalette(blue, darkBlue), colorIndex, BRIGHTNESS, LINEARBLEND);
+        colorIndex -= speed;
+    }
+}
+
+void FillLEDsFromPaletteColorsWhite( uint8_t colorIndex, CRGB blue, CRGB darkBlue)
+{
+    for( int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = ColorFromPalette(SetupActivePalette(blue, darkBlue), colorIndex, BRIGHTNESS, LINEARBLEND);
+        colorIndex += speed;
+    }
+}
+
+void FillLEDsFromPaletteColorsSplitWhite( uint8_t colorIndex, CRGB blue, CRGB darkBlue)
+{
+    for( int i = 0; i < 52; i++) {
+        leds[i] = ColorFromPalette(SetupActivePalette2(blue, darkBlue), colorIndex, BRIGHTNESS, LINEARBLEND);
+        colorIndex += speed;
+    }
+    for(int i = 0; i < 53; i++) {
+        leds[i+51] = ColorFromPalette(SetupActivePalette2(blue, darkBlue), colorIndex, BRIGHTNESS, LINEARBLEND);
+        colorIndex -= speed;
+    }
+}
+
+CRGBPalette16 SetupActivePalette(CRGB blue, CRGB darkBlue)
+{
+    CRGB black  = darkBlue;
     
     return CRGBPalette16(
                                    blue,  blue,  black,  black,
-                                   darkBlue, darkBlue, black,  black,
+                                   black,  blue,  blue,  blue,
                                    blue,  blue,  black,  black,
-                                   darkBlue, darkBlue, black,  black );
+                                   darkBlue, darkBlue, black, black);
 }
+
+CRGBPalette16 SetupActivePalette2(CRGB blue, CRGB darkBlue)
+{
+  CRGB black  = darkBlue;
+    
+    return CRGBPalette16(
+                                   blue,  blue,  black,  black,
+                                   blue,  blue,  blue,  blue,
+                                   blue,  blue,  black,  black,
+                                   darkBlue, darkBlue, black, black);
+}
+// CRGBPalette16 SetupActivePalette()
+// {
+  
+//     CRGB blue = CHSV( HUE_BLUE, 255, 255);
+//     CRGB darkBlue  = CRGB::DarkBlue;
+//     CRGB black  = CRGB::DarkBlue;
+    
+//     return CRGBPalette16(
+//                                    blue,  blue,  black,  black,
+//                                    darkBlue, darkBlue, black,  black,
+//                                    blue,  blue,  black,  black,
+//                                    darkBlue, darkBlue, black,  black );
+// }
 
 
 
