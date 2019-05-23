@@ -6,15 +6,17 @@
 
 FASTLED_USING_NAMESPACE
 
-#define LOCAL true
+// #define LOCAL true
 
 #define DATA_PIN    5
 #define LED_TYPE    WS2812B
-#define COLOR_ORDER RGB
+#define COLOR_ORDER GRB
 
-#define NUM_LEDS 105
-#define BRIGHTNESS 255
-#define FRAMES_PER_SECOND  220
+#define NUM_LEDS 300
+#define BRIGHTNESS 180
+#define FRAMES_PER_SECOND  96
+
+// Upload at 24 MHz for stability
 
 CRGB leds[NUM_LEDS];
 
@@ -178,11 +180,11 @@ void rainbow()
   fill_rainbow( leds, NUM_LEDS, gHue, 7);
 }
 
-int speed = 6;
+int speed = 3;
 void blue_pulse() 
 {
   static uint8_t startIndex = 0;
-  startIndex = startIndex + 2; /* motion speed */
+  startIndex = startIndex + 4; /* motion speed */
 
   FillLEDsFromPaletteColors(startIndex, CRGB::Blue, CRGB::DarkBlue);
 }
@@ -190,7 +192,7 @@ void blue_pulse()
 void blue_pulse_split() 
 {
   static uint8_t startIndex = 0;
-  startIndex = startIndex + 2; /* motion speed */
+  startIndex = startIndex + 4; /* motion speed */
   
   FillLEDsFromPaletteColorsSplit(startIndex, CRGB::Blue, CRGB::DarkBlue);
 }
@@ -198,7 +200,7 @@ void blue_pulse_split()
 void blue_pulse_white() 
 {
   static uint8_t startIndex = 0;
-  startIndex = startIndex + 2; /* motion speed */
+  startIndex = startIndex + 4; /* motion speed */
   
   FillLEDsFromPaletteColors(startIndex, CRGB::RoyalBlue, CRGB::LightSkyBlue);
 }
@@ -206,7 +208,7 @@ void blue_pulse_white()
 void blue_pulse_split_white() 
 {
   static uint8_t startIndex = 0;
-  startIndex = startIndex + 2; /* motion speed */
+  startIndex = startIndex + 4; /* motion speed */
   
   FillLEDsFromPaletteColorsSplit(startIndex, CRGB::RoyalBlue, CRGB::LightSkyBlue);
 }
@@ -336,6 +338,3 @@ CRGBPalette16 SetupActivePalette2(CRGB blue, CRGB darkBlue)
 //                                    blue,  blue,  black,  black,
 //                                    darkBlue, darkBlue, black,  black );
 // }
-
-
-
